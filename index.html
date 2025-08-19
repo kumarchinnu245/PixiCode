@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PixiCode - Barcode & QR Generator</title>
+
+  <!-- Poppins Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- External Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- bwip-js (supports telepen, qrcode, datamatrix, pdf417, etc.) -->
+  <script src="https://unpkg.com/bwip-js@4.5.0/dist/bwip-js-min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand" onclick="location.reload()" title="Click to refresh">PixiCode</div>
+      <div class="tag">Fast Barcodes & QR — PNG / SVG</div>
+    </header>
+
+    <div class="layout" role="main">
+      <!-- Controls -->
+      <div class="card" aria-label="Controls">
+        <div class="controls-col">
+          <div>
+            <label for="type">Barcode / Code Type</label>
+            <select id="type" aria-label="Barcode type">
+              <option value="code128">Code 128</option>
+              <option value="code39">Code 39</option>
+              <option value="ean13">EAN-13</option>
+              <option value="upca">UPC-A</option>
+              <option value="itf">ITF (Interleaved 2 of 5)</option>
+              <option value="itf14">ITF-14</option>
+              <option value="msi">MSI</option>
+              <option value="pharmacode">Pharmacode</option>
+              <option value="codabar">Codabar</option>
+              <option value="telepen">Telepen Alpha</option>
+              <option value="qrcode">QR Code</option>
+              <option value="datamatrix">DataMatrix</option>
+              <option value="pdf417">PDF417</option>
+              <option value="azteccode">Aztec</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="data">Data to encode</label>
+            <input id="data" type="text" placeholder="Enter your data here" aria-label="Data to encode">
+          </div>
+
+          <div class="row">
+            <label class="checkbox"><input id="includetext" type="checkbox" checked> Show human-readable text</label>
+            <div style="flex:1"></div>
+            <div style="font-size:13px;color:var(--muted)">Preview scale: <strong id="scaleLabel">3</strong></div>
+          </div>
+
+          <div class="slwrap">
+            <label for="scale">Scale (bar width)</label>
+            <input id="scale" type="range" min="1" max="8" value="3">
+          </div>
+
+          <div class="slwrap">
+            <label for="height">Bar height (px)</label>
+            <input id="height" type="range" min="10" max="220" value="60">
+          </div>
+
+          <div class="row" style="align-items:center;">
+            <div style="flex:1">
+              <label>Foreground</label>
+              <input id="fg" type="color" value="#000000" aria-label="Foreground color">
+            </div>
+            <div style="width:12px"></div>
+            <div style="flex:1">
+              <label>Background</label>
+              <input id="bg" type="color" value="#ffffff" aria-label="Background color">
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="generate" class="primary">Generate</button>
+            <button id="download-png" class="ghost">Download PNG (HQ)</button>
+            <button id="download-svg" class="ghost">Download SVG</button>
+            <button id="clear" class="ghost">Clear</button>
+          </div>
+
+          <div class="status" id="status" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="card preview" aria-label="Preview">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>Preview</strong>
+          <div class="meta"><span id="metaText"></span><span id="metaRight" style="margin-left:10px"></span></div>
+        </div>
+
+        <div class="canvas-wrap" style="margin-top:8px">
+          <canvas id="preview" width="800" height="240" aria-label="Barcode preview"></canvas>
+        </div>
+
+        <div id="svgPreview" style="display:none;margin-top:8px"></div>
+
+        <div style="font-size:13px;color:var(--muted);text-align:center">Tip: press <kbd>Enter</kbd> to generate.</div>
+      </div>
+    </div>
+
+    <!-- Full-width ad placeholder (above footer) -->
+    <div class="ad-full" role="complementary" aria-label="Advertisement">
+      <div style="width:100%;max-width:990px;text-align:center">
+        AD SPACE — Replace with your AdSense/advert script
+      </div>
+    </div>
+
+    <footer>&copy; <span id="year"></span> PixiCode — Export PNG & SVG · Works offline</footer>
+  </div>
+
+  <script>
+    // Elements
+    const typeEl = document.getElementById('type');
+    const dataEl = document.getElementById('data');
+    const includeTextEl = document.getElementById('includetext');
+    const scaleEl = document.getElementById('scale');
+    const heightEl = document.getElementById('height');
+    const fgEl = document.getElementById('fg');
+    const bgEl = document.getElementById('bg');
+    const generateBtn = document.getElementById('generate');
+    const downloadPngBtn = document.getElementById('download-png');
+    const downloadSvgBtn = document.getElementById('download-svg');
+    const clearBtn = document.getElementById('clear');
+    const previewCanvas = document.getElementById('preview');
+    const statusEl = document.getElementById('status');
+    const scaleLabel = document.getElementById('scaleLabel');
+    const metaText = document.getElementById('metaText');
+    const metaRight = document.getElementById('metaRight');
+    const svgPreview = document.getElementById('svgPreview');
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    function setStatus(msg, isErr=false){
+      statusEl.textContent = msg;
+      statusEl.style.color = isErr ? '#b91c1c' : 'var(--muted)';
+    }
+
+    // live label
+    scaleEl.addEventListener('input', ()=> { scaleLabel.textContent = scaleEl.value; });
+    scaleEl.dispatchEvent(new Event('input'));
+
+    // Generate preview
+    function generatePreview(){
+      const data = dataEl.value.trim();
+      if(!data){ setStatus('Please enter data to encode.', true); return false; }
+
+      const bcid = typeEl.value;
+      const scale = parseInt(scaleEl.value,10) || 3;
+      const height = parseInt(heightEl.value,10) || 60;
+      const includetext = includeTextEl.checked;
+      const fg = fgEl.value.replace('#','');
+      const bg = bgEl.value.replace('#','');
+
+      // bwip-js options
+      const opts = {
+        bcid: bcid,
+        text: data,
+        scale: scale,
+        height: height,
+        includetext: includetext,
+        textxalign: 'center',
+        paddingwidth: 12,
+        paddingheight: 12,
+        backgroundcolor: bg,
+        barcolor: fg
+      };
+
+      try {
+        svgPreview.style.display = 'none';
+        svgPreview.innerHTML = '';
+        bwipjs.toCanvas(previewCanvas, opts);
+        setStatus('Preview updated.');
+        metaText.textContent = data;
+        metaRight.textContent = `${bcid} · scale ${scale} · h ${height}px`;
+        return true;
+      } catch (err){
+        console.error(err);
+        setStatus('Error: ' + (err?.message || String(err)), true);
+        return false;
+      }
+    }
+
+    // Download high-quality PNG
+    function downloadPNG(){
+      const data = dataEl.value.trim();
+      if(!data){ setStatus('Please enter data before downloading.', true); return; }
+      setStatus('Rendering high-quality PNG...');
+
+      const bcid = typeEl.value;
+      const baseScale = parseInt(scaleEl.value,10) || 3;
+      const multiplier = 4; // 4x for HQ
+      const scale = Math.max(1, baseScale * multiplier);
+      let height = parseInt(heightEl.value,10) || 60;
+      const includetext = includeTextEl.checked;
+      const fg = fgEl.value.replace('#','');
+      const bg = bgEl.value.replace('#','');
+
+      const off = document.createElement('canvas');
+
+      try {
+        bwipjs.toCanvas(off, {
+          bcid: bcid,
+          text: data,
+          scale: scale,
+          height: height,
+          includetext: includetext,
+          textxalign: 'center',
+          paddingwidth: 30,
+          paddingheight: 30,
+          backgroundcolor: bg,
+          barcolor: fg
+        });
+
+        off.toBlob(function(blob){
+          const safeName = data.replace(/[^a-z0-9._-]/ig,'_').slice(0,120) || 'pixicode';
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `${safeName}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          setStatus('Downloaded PNG.');
+        }, 'image/png', 1.0);
+
+      } catch (err){
+        console.error(err);
+        setStatus('Error generating PNG: ' + (err?.message || err), true);
+      }
+    }
+
+    // Download SVG
+    function downloadSVG(){
+      const data = dataEl.value.trim();
+      if(!data){ setStatus('Please enter data before downloading.', true); return; }
+      setStatus('Generating SVG...');
+
+      const bcid = typeEl.value;
+      const scale = parseInt(scaleEl.value,10) || 3;
+      const height = parseInt(heightEl.value,10) || 60;
+      const includetext = includeTextEl.checked;
+      const fg = fgEl.value.replace('#','');
+      const bg = bgEl.value.replace('#','');
+
+      const opts = {
+        bcid: bcid,
+        text: data,
+        scale: scale,
+        height: height,
+        includetext: includetext,
+        textxalign: 'center',
+        paddingwidth: 12,
+        paddingheight: 12,
+        backgroundcolor: bg,
+        barcolor: fg
+      };
+
+      try {
+        const svg = bwipjs.toSVG(opts);
+        const blob = new Blob([svg], {type: 'image/svg+xml'});
+        const url = URL.createObjectURL(blob);
+        const safeName = data.replace(/[^a-z0-9._-]/ig,'_').slice(0,120) || 'pixicode';
+        const a = document.createElement('a');
+        a.href = url; a.download = `${safeName}.svg`;
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+
+        // also preview inline
+        svgPreview.style.display = 'block';
+        svgPreview.innerHTML = svg;
+        setStatus('Downloaded SVG.');
+      } catch (err){
+        console.error(err);
+        setStatus('Error generating SVG: ' + (err?.message || err), true);
+      }
+    }
+
+    // Clear
+    function clearAll(){
+      dataEl.value = '';
+      const ctx = previewCanvas.getContext('2d');
+      ctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+      svgPreview.style.display = 'none';
+      svgPreview.innerHTML = '';
+      setStatus('');
+      metaText.textContent = '';
+      metaRight.textContent = '';
+    }
+
+    // Wiring
+    generateBtn.addEventListener('click', generatePreview);
+    downloadPngBtn.addEventListener('click', downloadPNG);
+    downloadSvgBtn.addEventListener('click', downloadSVG);
+    clearBtn.addEventListener('click', clearAll);
+
+    // Enter to generate
+    dataEl.addEventListener('keydown', (e) => { if(e.key === 'Enter') generatePreview(); });
+
+    // live update on controls change (debounced)
+    let tmr = null;
+    [typeEl, scaleEl, heightEl, includeTextEl, fgEl, bgEl].forEach(el => {
+      el.addEventListener('input', () => {
+        clearTimeout(tmr);
+        tmr = setTimeout(() => generatePreview(), 300);
+      });
+    });
+
+    // no initial sample (blank)
+  </script>
+</body>
+</html>
