@@ -1,7 +1,6 @@
 # PixiCode — Barcode & QR Generator
 
-PixiCode is a simple, lightweight, and secure **Barcode & QR Code Generator** built using **HTML, CSS, and JavaScript**.  
-It allows you to quickly generate barcodes and QR codes directly in your browser without the need for any external backend.
+PixiCode is a simple, lightweight, and secure **Barcode & QR Code Generator** built using **HTML, CSS, and JavaScript**. It allows you to quickly generate barcodes and QR codes directly in your browser without the need for any external backend.
 
 ---
 
@@ -24,16 +23,6 @@ PixiCode/
 │ ├── black.png # Favicon for light mode
 │ └── white.png # Favicon for dark mode
 └── README.md # Documentation
-
-
----
-
-## 🖥️ Hosting on GitHub Pages
-1. Push your code to the `main` branch of your repo.
-2. Go to **Repository Settings > Pages**.
-3. Under **Source**, select `Deploy from a branch`.
-4. Choose `main` branch and `/ (root)` folder.
-5. Save — GitHub will generate a live link like: https://<your-username>.github.io/PixiCode/
 
 
 ---
