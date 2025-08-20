@@ -40,9 +40,8 @@ PixiCode/
 
 ## ⚙️ Local Setup
 1. Clone the repository: git clone https://github.com/<your-username>/PixiCode.git
-
 2. Open index.html in any modern browser.
-4. That’s it — no server setup required.
+3. That’s it — no server setup required.
 
 
 📌 Future Plans
